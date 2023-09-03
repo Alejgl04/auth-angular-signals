@@ -1,8 +1,9 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { environment } from './../../../environments/environments';
-import { HttpClient } from '@angular/common/http';
-import { Observable, catchError, map, tap, throwError } from 'rxjs';
-import { User, AuthStatus, SignInResponse } from '../interfaces';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { Observable, catchError, map, of, tap, throwError } from 'rxjs';
+import { User, AuthStatus, SignInResponse, CheckTokenResponse } from '../interfaces';
+
 
 @Injectable({
   providedIn: 'root'
@@ -23,21 +24,46 @@ export class AuthService {
 
   constructor() { }
 
+  private setAuthentication(user: User, token: string): boolean {
+
+    this._currentUser.set( user );
+    this._authStatus.set( AuthStatus.authenticated );
+    this.storeTokens(token);
+    return true;
+
+  }
+
   signIn( email: string, password: string ): Observable<Boolean> {
     const url  = `${ this.apiUrl }/auth/login`;
     const body = { email, password };
 
     return this.http.post<SignInResponse>( url, body )
       .pipe(
-        tap( ({ user, token }) => {
-          this._currentUser.set( user );
-          this._authStatus.set( AuthStatus.authenticated );
-          this.storeTokens(token);
-        }),
-
-        map( () => true ),
+        map( ({ user, token }) => this.setAuthentication(user, token)),
         catchError( error => throwError( () => error.error.message))
       );
+  }
+
+  checkAuthStatus(): Observable<Boolean> {
+    const url  = `${ this.apiUrl }/auth/checktoken`;
+    const token = this.getJwtToken();
+
+    if (!token) return of(false);
+
+    const headers = new HttpHeaders().set('Authorization', `Bearer ${token}`);
+
+    return this.http.get<CheckTokenResponse>(url, { headers })
+      .pipe(
+        map( ({ token, user }) => this.setAuthentication(user, token)),
+        catchError(() => {
+          this._authStatus.set( AuthStatus.notAuthenticated )
+          return of(false)
+        })
+    );
+  }
+
+  getJwtToken() {
+    return localStorage.getItem(this.JWT_TOKEN) || '';
   }
 
   private storeJwtToken(jwt: string) {
