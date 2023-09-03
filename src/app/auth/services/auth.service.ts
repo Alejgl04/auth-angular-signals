@@ -33,10 +33,9 @@ export class AuthService {
           this._currentUser.set( user );
           this._authStatus.set( AuthStatus.authenticated );
           this.storeTokens(token);
-          console.log({user,token});
         }),
-        map( () => true ),
 
+        map( () => true ),
         catchError( error => throwError( () => error.error.message))
       );
   }
