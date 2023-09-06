@@ -22,7 +22,9 @@ export class AuthService {
   public currentUser = computed( () => this._currentUser() );
   public authStatus = computed( () => this._authStatus() );
 
-  constructor() { }
+  constructor() {
+    this.checkAuthStatus().subscribe();
+  }
 
   private setAuthentication(user: User, token: string): boolean {
 
@@ -48,7 +50,10 @@ export class AuthService {
     const url  = `${ this.apiUrl }/auth/checktoken`;
     const token = this.getJwtToken();
 
-    if (!token) return of(false);
+    if (!token) {
+      this.logOut();
+      return of(false)
+    }
 
     const headers = new HttpHeaders().set('Authorization', `Bearer ${token}`);
 
@@ -60,6 +65,12 @@ export class AuthService {
           return of(false)
         })
     );
+  }
+
+  logOut() {
+    this.removeTokens();
+    this._currentUser.set(null);
+    this._authStatus.set( AuthStatus.notAuthenticated )
   }
 
   getJwtToken() {
